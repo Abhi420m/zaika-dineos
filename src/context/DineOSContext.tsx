@@ -32,6 +32,15 @@ interface DineOSContextType {
   qrModalOpen: boolean;
   setQrModalOpen: (open: boolean) => void;
 
+  // Staff Privacy & Security Lock
+  isStaffUnlocked: boolean;
+  staffAuthModalOpen: boolean;
+  setStaffAuthModalOpen: (open: boolean) => void;
+  pendingStaffView: MainView | null;
+  setPendingStaffView: (view: MainView | null) => void;
+  unlockStaff: (pin: string) => boolean;
+  lockStaff: () => void;
+
   // Restaurant Business Profile & Settings
   restaurantProfile: RestaurantProfile;
   updateRestaurantProfile: (profile: Partial<RestaurantProfile>) => void;
@@ -102,18 +111,37 @@ const DineOSContext = createContext<DineOSContextType | undefined>(undefined);
 const LOCAL_STORAGE_KEY = 'zaika_dineos_v1';
 
 export const DineOSProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Staff Security & Privacy Lock (Defaults to locked for guest privacy)
+  const [isStaffUnlocked, setIsStaffUnlocked] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return sessionStorage.getItem('zaika_staff_session') === 'true';
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
+
+  const [staffAuthModalOpen, setStaffAuthModalOpen] = useState<boolean>(false);
+  const [pendingStaffView, setPendingStaffView] = useState<MainView | null>(null);
+
   // Navigation State parsed from initial URL (params, hash, or path)
+  // If staff is not unlocked, guests are strictly locked into 'guest' view
   const [mainView, setMainView] = useState<MainView>(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const v = params.get('view');
-      if (v && ['guest', 'staff_kds', 'staff_floor', 'staff_overview'].includes(v)) {
-        return v as MainView;
+      const isUnlocked = sessionStorage.getItem('zaika_staff_session') === 'true';
+      if (isUnlocked) {
+        const params = new URLSearchParams(window.location.search);
+        const v = params.get('view');
+        if (v && ['guest', 'staff_kds', 'staff_floor', 'staff_overview'].includes(v)) {
+          return v as MainView;
+        }
+        const href = window.location.href.toLowerCase();
+        if (href.includes('/staff/kds') || href.includes('kds')) return 'staff_kds';
+        if (href.includes('/staff/floor') || href.includes('floor')) return 'staff_floor';
+        if (href.includes('/staff/overview') || href.includes('overview')) return 'staff_overview';
       }
-      const href = window.location.href.toLowerCase();
-      if (href.includes('/staff/kds') || href.includes('kds')) return 'staff_kds';
-      if (href.includes('/staff/floor') || href.includes('floor')) return 'staff_floor';
-      if (href.includes('/staff/overview') || href.includes('overview')) return 'staff_overview';
     }
     return 'guest';
   });
@@ -270,6 +298,76 @@ export const DineOSProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY + '_orders', JSON.stringify(orders));
   }, [orders]);
+
+  // Guarded View Switcher: Intercepts staff views if not authenticated
+  const handleSetMainView = useCallback((view: MainView) => {
+    if (view === 'guest') {
+      setMainView('guest');
+      return;
+    }
+    if (!isStaffUnlocked) {
+      setPendingStaffView(view);
+      setStaffAuthModalOpen(true);
+      return;
+    }
+    setMainView(view);
+  }, [isStaffUnlocked]);
+
+  // Unlock Staff Mode with 4-digit PIN
+  const unlockStaff = useCallback((pin: string): boolean => {
+    const validPin = restaurantProfile.adminPin || '1234';
+    if (pin.trim() === validPin.trim()) {
+      sounds.playSuccess();
+      setIsStaffUnlocked(true);
+      try {
+        sessionStorage.setItem('zaika_staff_session', 'true');
+      } catch {
+        // Fallback
+      }
+      setStaffAuthModalOpen(false);
+      if (pendingStaffView) {
+        setMainView(pendingStaffView);
+        setPendingStaffView(null);
+      } else {
+        setMainView('staff_kds');
+      }
+      return true;
+    }
+    sounds.playAlert();
+    return false;
+  }, [restaurantProfile.adminPin, pendingStaffView]);
+
+  // Re-lock to Guest Mode (Complete privacy)
+  const lockStaff = useCallback(() => {
+    sounds.playTap();
+    setIsStaffUnlocked(false);
+    try {
+      sessionStorage.removeItem('zaika_staff_session');
+    } catch {
+      // Fallback
+    }
+    setMainView('guest');
+    setGuestTab('menu');
+  }, []);
+
+  // Guarded Admin Modals (Cannot be opened by guests)
+  const handleSetAddDishModalOpen = useCallback((open: boolean) => {
+    if (open && !isStaffUnlocked) {
+      setPendingStaffView(null);
+      setStaffAuthModalOpen(true);
+      return;
+    }
+    setAddDishModalOpen(open);
+  }, [isStaffUnlocked]);
+
+  const handleSetRestaurantSetupModalOpen = useCallback((open: boolean) => {
+    if (open && !isStaffUnlocked) {
+      setPendingStaffView(null);
+      setStaffAuthModalOpen(true);
+      return;
+    }
+    setRestaurantSetupModalOpen(open);
+  }, [isStaffUnlocked]);
 
   const addMenuItem = (item: MenuItem) => {
     sounds.playSuccess();
@@ -714,8 +812,8 @@ export const DineOSProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   return (
     <DineOSContext.Provider
       value={{
-        mainView,
-        setMainView,
+        mainView: isStaffUnlocked ? mainView : 'guest',
+        setMainView: handleSetMainView,
         guestTab,
         setGuestTab,
         isDeviceFrame,
@@ -725,6 +823,14 @@ export const DineOSProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         qrModalOpen,
         setQrModalOpen,
 
+        isStaffUnlocked,
+        staffAuthModalOpen,
+        setStaffAuthModalOpen,
+        pendingStaffView,
+        setPendingStaffView,
+        unlockStaff,
+        lockStaff,
+
         selectedTableId,
         setSelectedTableId,
         activeTable,
@@ -732,7 +838,7 @@ export const DineOSProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         restaurantProfile,
         updateRestaurantProfile,
         restaurantSetupModalOpen,
-        setRestaurantSetupModalOpen,
+        setRestaurantSetupModalOpen: handleSetRestaurantSetupModalOpen,
 
         menu,
         tables,
@@ -749,7 +855,7 @@ export const DineOSProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         selectedDish,
         setSelectedDish,
         addDishModalOpen,
-        setAddDishModalOpen,
+        setAddDishModalOpen: handleSetAddDishModalOpen,
         addMenuItem,
 
         callWaiterModalOpen,

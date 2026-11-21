@@ -14,10 +14,10 @@ import {
   ShoppingBag,
   Flame,
   Wifi,
-  Battery,
-  Smartphone,
   Sparkles,
-  QrCode
+  Lock,
+  ShieldCheck,
+  CheckCircle2
 } from 'lucide-react';
 
 export const GuestLayout: React.FC = () => {
@@ -30,18 +30,19 @@ export const GuestLayout: React.FC = () => {
     cart,
     setCartDrawerOpen,
     setCallWaiterModalOpen,
-    setQrModalOpen,
-    getCurrentOrderForTable
+    getCurrentOrderForTable,
+    isStaffUnlocked,
+    setStaffAuthModalOpen
   } = useDineOS();
 
   const currentOrder = getCurrentOrderForTable(selectedTableId);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const navItems = [
-    { id: 'menu', label: 'Menu', icon: Utensils, badge: null },
+    { id: 'menu', label: 'Digital Menu', icon: Utensils, badge: null },
     {
       id: 'wait',
-      label: 'While-You-Wait',
+      label: 'Food Status',
       icon: Hourglass,
       badge: currentOrder && currentOrder.status === 'COOKING' ? 'Cooking' : null
     },
@@ -49,78 +50,35 @@ export const GuestLayout: React.FC = () => {
       id: 'call',
       label: 'Call Waiter',
       icon: Bell,
-      badge: activeTable.waiterRequest.active ? 'Alert' : null
+      badge: activeTable.waiterRequest.active ? 'Active' : null
     },
     {
       id: 'pay',
-      label: 'Pay Bill',
+      label: 'Bill & Pay',
       icon: CreditCard,
       badge: currentOrder ? `₹${currentOrder.totalAmount}` : null
     }
   ];
 
   const content = (
-    <div className="relative flex flex-col min-h-full bg-slate-950 text-slate-100">
-      {/* Simulated Mobile Status Bar (Inside phone view) */}
-      <div className="px-6 pt-3 pb-1 flex items-center justify-between text-[11px] text-slate-400 font-semibold select-none">
-        <span>10:02</span>
-        {/* Dynamic Island Pill */}
-        <div className="w-20 h-4 bg-slate-900 rounded-full border border-slate-800 flex items-center justify-center">
-          <span className="w-2 h-2 rounded-full bg-amber-500/80 animate-pulse" />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Wifi className="w-3.5 h-3.5 text-slate-300" />
-          <span className="text-[10px]">5G</span>
-          <Battery className="w-4 h-4 text-slate-300" />
-        </div>
-      </div>
+    <div className="relative flex flex-col min-h-full bg-slate-950 text-slate-100 pb-20">
+      {/* Table Welcome & Wi-Fi Banner */}
+      <div className="p-3 sm:p-4 bg-gradient-to-b from-slate-900/80 to-slate-950 border-b border-slate-800/60">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 font-black text-xs flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Table {selectedTableId}</span>
+            </span>
+            <span className="text-xs text-slate-300 font-medium">
+              Guests: <strong className="text-white">{activeTable.guests.join(' & ')}</strong>
+            </span>
+          </div>
 
-      {/* Guest Sticky Top Bar */}
-      <div className="sticky top-0 z-20 bg-slate-950/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setQrModalOpen(true)}
-            className="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-xl text-xs font-black transition-all"
-            title="Scan or Switch Table"
-          >
-            <QrCode className="w-3.5 h-3.5" />
-            <span>Table {selectedTableId}</span>
-          </button>
-          <span className="text-xs font-semibold text-slate-300 truncate max-w-[120px]">
-            {activeTable.guests.join(' & ')}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Quick Call Waiter shortcut */}
-          <button
-            onClick={() => setCallWaiterModalOpen(true)}
-            className={`p-2 rounded-xl text-xs font-bold transition-all relative ${
-              activeTable.waiterRequest.active
-                ? 'bg-rose-500 text-white animate-pulse shadow-md shadow-rose-500/30'
-                : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-800'
-            }`}
-            title="Call Waiter"
-          >
-            <Bell className="w-4 h-4" />
-            {activeTable.waiterRequest.active && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full ring-2 ring-slate-950" />
-            )}
-          </button>
-
-          {/* Quick Cart Drawer Trigger */}
-          <button
-            onClick={() => setCartDrawerOpen(true)}
-            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-400 relative transition-all"
-            title="Open Cart"
-          >
-            <ShoppingBag className="w-4 h-4" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-5 h-5 px-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] font-black text-slate-950 flex items-center justify-center shadow-md">
-                {cartCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-950 px-2.5 py-1 rounded-full border border-slate-800">
+            <Wifi className="w-3 h-3 text-emerald-400" />
+            <span>WiFi: <strong className="text-slate-200 font-mono">Zaika_Guest_5G</strong></span>
+          </div>
         </div>
       </div>
 
@@ -129,24 +87,51 @@ export const GuestLayout: React.FC = () => {
         {guestTab === 'menu' && <GuestMenu />}
         {guestTab === 'wait' && <WhileYouWait />}
         {guestTab === 'call' && (
-          <div className="p-4">
-            <h3 className="text-base font-bold text-white mb-2">One-Tap Waiter Assistance</h3>
-            <p className="text-xs text-slate-400 mb-4">
-              Need water, fresh cutlery, napkins or your check?
-            </p>
+          <div className="p-4 max-w-md mx-auto space-y-4">
+            <div className="text-center space-y-1">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto mb-2 shadow-inner">
+                <Bell className="w-6 h-6 animate-bounce" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Call Table Waiter</h3>
+              <p className="text-xs text-slate-400">
+                Tap below for instant waiter service right at Table {selectedTableId}
+              </p>
+            </div>
             <button
               onClick={() => setCallWaiterModalOpen(true)}
-              className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 text-white font-black text-sm shadow-xl flex items-center justify-center gap-2"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-rose-600 via-orange-500 to-amber-500 text-white font-black text-sm shadow-xl flex items-center justify-center gap-2 active:scale-98 transition-transform"
             >
               <Bell className="w-5 h-5" />
-              <span>Open Call Waiter Console</span>
+              <span>Request Waiter to Table {selectedTableId}</span>
             </button>
           </div>
         )}
         {guestTab === 'pay' && <PayBillView />}
       </main>
 
-      {/* Floating Bottom Navigation Bar */}
+      {/* Privacy Guarantee & Subtle Staff Portal Footer */}
+      <footer className="mt-8 px-4 py-6 border-t border-slate-900 text-center space-y-2 text-xs text-slate-500">
+        <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <span>100% Guest Privacy • No App Download • No Phone Number Required</span>
+        </p>
+        <p className="text-[10px] text-slate-600">
+          Zaika Indian Bistro • FSSAI Lic. 11524021000345 • Powered by Zaika DineOS
+        </p>
+        {!isStaffUnlocked && (
+          <div className="pt-2">
+            <button
+              onClick={() => setStaffAuthModalOpen(true)}
+              className="inline-flex items-center gap-1 text-[11px] text-slate-600 hover:text-amber-400 transition-colors"
+            >
+              <Lock className="w-3 h-3" />
+              <span>Staff & Kitchen Portal Login</span>
+            </button>
+          </div>
+        )}
+      </footer>
+
+      {/* Floating Bottom Navigation Bar for Guests */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 bg-slate-950/95 backdrop-blur-md border-t border-slate-800/80 px-2 py-1.5 shadow-2xl">
         <div className="max-w-md mx-auto grid grid-cols-4 gap-1">
           {navItems.map((item) => {
@@ -188,19 +173,10 @@ export const GuestLayout: React.FC = () => {
     </div>
   );
 
-  if (isDeviceFrame) {
-    return (
-      <div className="py-6 px-3 flex justify-center items-center min-h-[calc(100vh-60px)] bg-slate-950">
-        <div className="relative w-full max-w-[420px] h-[850px] max-h-[92vh] bg-slate-950 rounded-[44px] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] border-[10px] border-slate-800 ring-1 ring-slate-700/80 overflow-hidden flex flex-col">
-          {content}
-        </div>
-      </div>
-    );
-  }
-
+  // Responsive Display: Clean full-width on mobile phones, elegant centered view on desktop
   return (
     <div className="min-h-[calc(100vh-60px)] bg-slate-950 flex flex-col">
-      <div className="max-w-xl mx-auto w-full flex-1 flex flex-col">
+      <div className="w-full max-w-xl mx-auto flex-1 flex flex-col bg-slate-950 sm:border-x sm:border-slate-800/60 shadow-2xl">
         {content}
       </div>
     </div>

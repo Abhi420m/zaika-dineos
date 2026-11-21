@@ -8,27 +8,35 @@ import { StaffOverview } from './components/staff/StaffOverview';
 import { QRScannerModal } from './components/common/QRScannerModal';
 import { AddDishModal } from './components/common/AddDishModal';
 import { RestaurantSetupModal } from './components/common/RestaurantSetupModal';
+import { StaffAuthModal } from './components/common/StaffAuthModal';
 
 const DineOSApp: React.FC = () => {
-  const { mainView } = useDineOS();
+  const { mainView, isStaffUnlocked } = useDineOS();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      {/* Top Universal App Header / Role Switcher */}
+      {/* Top Header: Automatically switches between clean Guest Header and Staff Console */}
       <HeaderNav />
 
-      {/* Main View Router */}
+      {/* Main View: Strictly locked to guest menu for customers scanning QR codes */}
       <div className="flex-1">
-        {mainView === 'guest' && <GuestLayout />}
-        {mainView === 'staff_kds' && <StaffKDS />}
-        {mainView === 'staff_floor' && <StaffFloorMap />}
-        {mainView === 'staff_overview' && <StaffOverview />}
+        {(!isStaffUnlocked || mainView === 'guest') && <GuestLayout />}
+        {isStaffUnlocked && mainView === 'staff_kds' && <StaffKDS />}
+        {isStaffUnlocked && mainView === 'staff_floor' && <StaffFloorMap />}
+        {isStaffUnlocked && mainView === 'staff_overview' && <StaffOverview />}
       </div>
 
-      {/* Global Modals */}
-      <QRScannerModal />
-      <AddDishModal />
-      <RestaurantSetupModal />
+      {/* Global Staff Authentication Modal */}
+      <StaffAuthModal />
+
+      {/* Staff & Admin Only Modals */}
+      {isStaffUnlocked && (
+        <>
+          <QRScannerModal />
+          <AddDishModal />
+          <RestaurantSetupModal />
+        </>
+      )}
     </div>
   );
 };
