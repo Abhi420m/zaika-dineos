@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zaika DineOS • Redirecting...</title>
+    <script>
+      // Single Page Apps for GitHub Pages
+      // Redirects 404 URLs back to the SPA root preserving path and query params
+      var pathSegmentsToKeep = 1; // 1 segment for https://<username>.github.io/<repo-name>/
+      var l = window.location;
+      var repoPath = l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/');
+      var subPath = l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/');
+
+      // Check if table ID is present in path (e.g. /table/T5 or /T5)
+      var match = subPath.match(/table[/-]?(T[1-6])/i) || subPath.match(/^(T[1-6])$/i);
+      var tableParam = match ? ('table=' + match[1].toUpperCase()) : '';
+
+      var query = l.search ? l.search : '';
+      if (tableParam && !query.includes('table=')) {
+        query = query ? (query + '&' + tableParam) : ('?' + tableParam);
+      }
+
+      var target = l.protocol + '//' + l.host + repoPath + '/' + query + l.hash;
+      window.location.replace(target);
+    </script>
+  </head>
+  <body style="background-color: #020617; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+    <div style="text-align: center; padding: 20px;">
+      <div style="font-size: 36px; margin-bottom: 12px;">🍛</div>
+      <h2 style="color: #f59e0b; margin: 0 0 8px 0; font-size: 20px;">Zaika DineOS</h2>
+      <p style="color: #94a3b8; font-size: 14px; margin: 0;">Loading your table menu...</p>
+    </div>
+  </body>
+</html>
