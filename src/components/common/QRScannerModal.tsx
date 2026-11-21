@@ -34,7 +34,23 @@ export const QRScannerModal: React.FC = () => {
   const [qrDataUrls, setQrDataUrls] = useState<Record<string, string>>({});
   const [copiedUrl, setCopiedUrl] = useState<boolean>(false);
 
-  // Host configuration for scanning (allows testing on phone over Wi-Fi)
+  // Host configuration for scanning (allows testing on phone over Wi-Fi or on hosted domain)
+  const isHosted = typeof window !== 'undefined' &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1';
+
+  const getCleanBasePath = () => {
+    if (typeof window === 'undefined') return '/';
+    let path = window.location.pathname || '/';
+    if (path.endsWith('index.html')) {
+      path = path.slice(0, -'index.html'.length);
+    }
+    if (!path.endsWith('/')) {
+      path += '/';
+    }
+    return path;
+  };
+
   const defaultHost = typeof window !== 'undefined'
     ? (window.location.hostname === 'localhost' ? '10.204.81.147:5174' : window.location.host)
     : '10.204.81.147:5174';
@@ -48,14 +64,27 @@ export const QRScannerModal: React.FC = () => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
 
-  // Calculate current target URL for a table
+  // Calculate current target URL for a table (guaranteed no 404 on GitHub Pages or Localhost)
   const getTableUrl = (tId: TableId) => {
-    if (useLocalhost) {
-      return `http://localhost:5174/?table=${tId}`;
+    if (typeof window === 'undefined') return `/?table=${tId}`;
+
+    const basePath = getCleanBasePath();
+
+    // 1. If running on GitHub Pages or any hosted production domain:
+    // Ensures the exact repo subpath (e.g. /zaika-dineos/) is included so phone scans NEVER 404!
+    if (isHosted) {
+      return `${window.location.origin}${basePath}?table=${tId}`;
     }
-    const host = customHost.trim() || defaultHost;
+
+    // 2. If running locally with localhost override:
+    if (useLocalhost) {
+      return `http://localhost:5174${basePath}?table=${tId}`;
+    }
+
+    // 3. If running locally with LAN IP for testing across phones on the same Wi-Fi:
+    const host = customHost.trim() || '10.204.81.147:5174';
     const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-    return `${protocol}//${host}/?table=${tId}`;
+    return `${protocol}//${host}${basePath}?table=${tId}`;
   };
 
   // Generate real scannable QR code data URLs
@@ -264,33 +293,47 @@ export const QRScannerModal: React.FC = () => {
         {/* Tab 1: Real Scannable QR Standees */}
         {activeTab === 'table_qr' && (
           <div className="p-4 sm:p-5 overflow-y-auto space-y-4">
-            {/* Wi-Fi & Phone Testing Helper Bar */}
+            {/* Hosted vs Local Wi-Fi Testing Helper Bar */}
             <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-emerald-400" />
-                <span className="text-slate-300">
-                  Phone Scan Target IP:
-                </span>
-                <input
-                  type="text"
-                  value={customHost}
-                  onChange={(e) => setCustomHost(e.target.value)}
-                  placeholder="e.g. 10.204.81.147:5174"
-                  className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-500 w-44"
-                />
-              </div>
+              {isHosted ? (
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-slate-300 font-semibold">
+                    Live Cloud QR Enabled:
+                  </span>
+                  <span className="text-amber-400 font-mono text-[11px] bg-slate-900 px-2 py-0.5 rounded-md border border-slate-700 truncate max-w-[280px]">
+                    {window.location.origin}{getCleanBasePath()}
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-emerald-400" />
+                  <span className="text-slate-300">
+                    Phone Scan Target IP:
+                  </span>
+                  <input
+                    type="text"
+                    value={customHost}
+                    onChange={(e) => setCustomHost(e.target.value)}
+                    placeholder="e.g. 10.204.81.147:5174"
+                    className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-500 w-44"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setUseLocalhost(!useLocalhost)}
-                  className={`px-2 py-1 rounded-lg text-[11px] font-bold border transition-all ${
-                    useLocalhost
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                      : 'bg-slate-900 border-slate-800 text-slate-400'
-                  }`}
-                >
-                  {useLocalhost ? 'Localhost Mode' : 'Wi-Fi LAN Mode'}
-                </button>
+                {!isHosted && (
+                  <button
+                    onClick={() => setUseLocalhost(!useLocalhost)}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                      useLocalhost
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                        : 'bg-slate-900 border-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {useLocalhost ? 'Localhost Mode' : 'Wi-Fi LAN Mode'}
+                  </button>
+                )}
                 <button
                   onClick={handlePrint}
                   className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold border border-slate-700 flex items-center gap-1"
@@ -382,6 +425,15 @@ export const QRScannerModal: React.FC = () => {
                   >
                     Open Menu for Table {standeeTable}
                   </button>
+                  <a
+                    href={getTableUrl(standeeTable)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-xs border border-slate-700 flex items-center gap-1.5 transition-all"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Test Table URL</span>
+                  </a>
                   <button
                     onClick={handleCopyCurrentUrl}
                     className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 flex items-center gap-1.5 transition-all"

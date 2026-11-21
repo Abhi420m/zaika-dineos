@@ -102,9 +102,37 @@ const DineOSContext = createContext<DineOSContextType | undefined>(undefined);
 const LOCAL_STORAGE_KEY = 'zaika_dineos_v1';
 
 export const DineOSProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Navigation State
-  const [mainView, setMainView] = useState<MainView>('guest');
-  const [guestTab, setGuestTab] = useState<GuestTab>('menu');
+  // Navigation State parsed from initial URL (params, hash, or path)
+  const [mainView, setMainView] = useState<MainView>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('view');
+      if (v && ['guest', 'staff_kds', 'staff_floor', 'staff_overview'].includes(v)) {
+        return v as MainView;
+      }
+      const href = window.location.href.toLowerCase();
+      if (href.includes('/staff/kds') || href.includes('kds')) return 'staff_kds';
+      if (href.includes('/staff/floor') || href.includes('floor')) return 'staff_floor';
+      if (href.includes('/staff/overview') || href.includes('overview')) return 'staff_overview';
+    }
+    return 'guest';
+  });
+
+  const [guestTab, setGuestTab] = useState<GuestTab>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab && ['menu', 'wait', 'call', 'pay'].includes(tab)) {
+        return tab as GuestTab;
+      }
+      const href = window.location.href.toLowerCase();
+      if (href.includes('/wait')) return 'wait';
+      if (href.includes('/call')) return 'call';
+      if (href.includes('/pay')) return 'pay';
+    }
+    return 'menu';
+  });
+
   const [isDeviceFrame, setIsDeviceFrame] = useState<boolean>(true);
   const [soundMuted, setSoundMuted] = useState<boolean>(false);
   const [qrModalOpen, setQrModalOpen] = useState<boolean>(false);
@@ -114,21 +142,48 @@ export const DineOSProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const urlTable = params.get('table');
-      if (urlTable && ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].includes(urlTable)) {
-        return urlTable as TableId;
+      if (urlTable) {
+        const clean = urlTable.toUpperCase();
+        if (['T1', 'T2', 'T3', 'T4', 'T5', 'T6'].includes(clean)) {
+          return clean as TableId;
+        }
+        if (['1', '2', '3', '4', '5', '6'].includes(clean)) {
+          return `T${clean}` as TableId;
+        }
+      }
+      // Also check hash and pathname (e.g., #table=T1 or /table/T1/menu)
+      const fullUrl = window.location.href;
+      const match = fullUrl.match(/table[=_/-]?(T[1-6]|[1-6])/i);
+      if (match && match[1]) {
+        const found = match[1].toUpperCase();
+        return (found.startsWith('T') ? found : `T${found}`) as TableId;
       }
     }
     return 'T5';
   });
 
-  // Sync table ID to URL for seamless QR scans
+  // Sync table ID & view to URL for seamless QR scans and sharing
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.set('table', selectedTableId);
-      window.history.replaceState({}, '', url.toString());
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('table', selectedTableId);
+        if (mainView !== 'guest') {
+          url.searchParams.set('view', mainView);
+        } else {
+          url.searchParams.delete('view');
+        }
+        if (guestTab !== 'menu' && mainView === 'guest') {
+          url.searchParams.set('tab', guestTab);
+        } else {
+          url.searchParams.delete('tab');
+        }
+        window.history.replaceState({}, '', url.toString());
+      } catch {
+        // Fallback for isolated contexts
+      }
     }
-  }, [selectedTableId]);
+  }, [selectedTableId, mainView, guestTab]);
 
   // Core Data
   const [menu, setMenu] = useState<MenuItem[]>(() => {
